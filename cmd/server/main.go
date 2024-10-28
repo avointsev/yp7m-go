@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -77,18 +78,29 @@ func (m *MemStorage) GetAllMetrics() map[string]interface{} {
 // updateMetricHandler основная функция обновления метрик.
 func updateMetricHandler(storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		parts := strings.Split(r.URL.Path, "/")
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
 
+		parts := strings.Split(r.URL.Path, "/")
 		const expectedPartsLength = 5
+		const expectedMetricMethod = "update"
 
 		if len(parts) != expectedPartsLength {
 			http.Error(w, "Invalid URL format", http.StatusNotFound)
 			return
 		}
 
+		metricMethod := parts[1]
 		metricType := parts[2]
 		metricName := parts[3]
 		metricValue := parts[4]
+
+		if metricMethod != expectedMetricMethod {
+			http.Error(w, "Metric method incorrect", http.StatusNotFound)
+			return
+		}
 
 		if metricName == "" {
 			http.Error(w, "Metric name is required", http.StatusNotFound)
@@ -97,6 +109,7 @@ func updateMetricHandler(storage Storage) http.HandlerFunc {
 
 		var responseMessage string
 
+		// Обработка типов метрик
 		switch MetricType(metricType) {
 		case Gauge:
 			value, err := strconv.ParseFloat(metricValue, 64)
@@ -131,7 +144,7 @@ func updateMetricHandler(storage Storage) http.HandlerFunc {
 }
 
 // rootHandler обработчик для корневого URL.
-func rootHandler(w http.ResponseWriter, r *http.Request) {
+func rootHandler(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprintln(w, `<html>
     <body>
@@ -160,16 +173,34 @@ func getAllMetricsHandler(storage Storage) http.HandlerFunc {
 	}
 }
 
+// defaultHandler проверяет допустимые пути и вызывает соответствующие обработчики.
+func defaultHandler(storage Storage) http.HandlerFunc {
+	// Pattern for update
+	updatePathPattern := regexp.MustCompile(`^/update/(gauge|counter)/.*$`)
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/" && r.Method == http.MethodGet:
+			rootHandler(w)
+		case r.URL.Path == "/metrics" && r.Method == http.MethodGet:
+			getAllMetricsHandler(storage)(w, r)
+		case updatePathPattern.MatchString(r.URL.Path) && r.Method == http.MethodPost:
+			updateMetricHandler(storage)(w, r)
+		default:
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+		}
+	}
+}
+
 func main() {
 	address := fmt.Sprintf("%s:%s", host, port)
-
 	storage := NewMemStorage()
-	http.HandleFunc("/update/", updateMetricHandler(storage))
-	http.HandleFunc("/metrics", getAllMetricsHandler(storage))
-	http.HandleFunc("/", rootHandler)
+
+	mux := http.NewServeMux()
+	mux.Handle("/", defaultHandler(storage))
 
 	log.Printf("Server is running on http://%s", address)
-	if err := http.ListenAndServe(address, nil); err != nil {
+	if err := http.ListenAndServe(address, mux); err != nil {
 		log.Fatalf("could not start server: %v", err)
 	}
 }
