@@ -11,13 +11,12 @@ import (
 	"sync"
 )
 
-// Определение переменных подключения.
 var (
 	host = "localhost"
 	port = "8080"
 )
 
-// MetricType определение типов метрик.
+// MetricType define metric types.
 type MetricType string
 
 const (
@@ -25,21 +24,21 @@ const (
 	Counter MetricType = "counter"
 )
 
-// Storage интерфейс для взаимодействия с хранилищем метрик.
+// Storage interface for interact with MemStorage.
 type Storage interface {
 	UpdateGauge(name string, value float64)
 	UpdateCounter(name string, value int64)
 	GetAllMetrics() map[string]interface{}
 }
 
-// MemStorage cтруктура хранилища метрик.
+// MemStorage memory storage for metrics.
 type MemStorage struct {
 	gauges   map[string]float64
 	counters map[string]int64
 	mu       sync.Mutex
 }
 
-// NewMemStorage cоздание нового хранилища.
+// NewMemStorage function of creation of initial memStorage.
 func NewMemStorage() *MemStorage {
 	return &MemStorage{
 		gauges:   make(map[string]float64),
@@ -47,7 +46,7 @@ func NewMemStorage() *MemStorage {
 	}
 }
 
-// UpdateGauge обновление метрик gauge и counter.
+// UpdateGauge function of update gauge и counter metrics.
 func (m *MemStorage) UpdateGauge(name string, value float64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -60,7 +59,7 @@ func (m *MemStorage) UpdateCounter(name string, value int64) {
 	m.counters[name] += value
 }
 
-// GetAllMetrics получение всех метрик.
+// GetAllMetrics get list of all available metrics.
 func (m *MemStorage) GetAllMetrics() map[string]interface{} {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -75,7 +74,7 @@ func (m *MemStorage) GetAllMetrics() map[string]interface{} {
 	return allMetrics
 }
 
-// updateMetricHandler основная функция обновления метрик.
+// updateMetricHandler function of update metrics.
 func updateMetricHandler(storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -109,7 +108,6 @@ func updateMetricHandler(storage Storage) http.HandlerFunc {
 
 		var responseMessage string
 
-		// Обработка типов метрик
 		switch MetricType(metricType) {
 		case Gauge:
 			value, err := strconv.ParseFloat(metricValue, 64)
@@ -143,7 +141,7 @@ func updateMetricHandler(storage Storage) http.HandlerFunc {
 	}
 }
 
-// rootHandler обработчик для корневого URL.
+// rootHandler http root handler.
 func rootHandler(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprintln(w, `<html>
@@ -154,7 +152,7 @@ func rootHandler(w http.ResponseWriter) {
 </html>`)
 }
 
-// getAllMetricsHandler обработчик отображения страницы метрик.
+// getAllMetricsHandler http handler for metric page.
 func getAllMetricsHandler(storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -173,7 +171,7 @@ func getAllMetricsHandler(storage Storage) http.HandlerFunc {
 	}
 }
 
-// defaultHandler проверяет допустимые пути и вызывает соответствующие обработчики.
+// defaultHandler function of checking of acceptable http paths.
 func defaultHandler(storage Storage) http.HandlerFunc {
 	// Pattern for update
 	updatePathPattern := regexp.MustCompile(`^/update/(gauge|counter)/.*$`)
