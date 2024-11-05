@@ -1,14 +1,14 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"regexp"
 	"strconv"
-	"strings"
 	"sync"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 var (
@@ -16,7 +16,7 @@ var (
 	port = "8080"
 )
 
-// MetricType define metric types.
+// MetricType defines metric types.
 type MetricType string
 
 const (
@@ -24,11 +24,12 @@ const (
 	Counter MetricType = "counter"
 )
 
-// Storage interface for interact with MemStorage.
+// Storage interface for interacting with MemStorage.
 type Storage interface {
 	UpdateGauge(name string, value float64)
 	UpdateCounter(name string, value int64)
 	GetAllMetrics() map[string]interface{}
+	GetMetric(metricType, name string) (interface{}, bool)
 }
 
 // MemStorage memory storage for metrics.
@@ -38,7 +39,7 @@ type MemStorage struct {
 	mu       sync.Mutex
 }
 
-// NewMemStorage function of creation of initial memStorage.
+// NewMemStorage creates a new instance of MemStorage.
 func NewMemStorage() *MemStorage {
 	return &MemStorage{
 		gauges:   make(map[string]float64),
@@ -46,20 +47,21 @@ func NewMemStorage() *MemStorage {
 	}
 }
 
-// UpdateGauge function of update gauge и counter metrics.
+// UpdateGauge updates the value of a gauge metric.
 func (m *MemStorage) UpdateGauge(name string, value float64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.gauges[name] = value
 }
 
+// UpdateCounter updates the value of a counter metric.
 func (m *MemStorage) UpdateCounter(name string, value int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.counters[name] += value
 }
 
-// GetAllMetrics get list of all available metrics.
+// GetAllMetrics returns a map of all available metrics.
 func (m *MemStorage) GetAllMetrics() map[string]interface{} {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -74,32 +76,29 @@ func (m *MemStorage) GetAllMetrics() map[string]interface{} {
 	return allMetrics
 }
 
-// updateMetricHandler function of update metrics.
+// GetMetric returns the value of a specific metric by type and name.
+func (m *MemStorage) GetMetric(metricType, name string) (interface{}, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	switch MetricType(metricType) {
+	case Gauge:
+		value, exists := m.gauges[name]
+		return value, exists
+	case Counter:
+		value, exists := m.counters[name]
+		return value, exists
+	default:
+		return nil, false
+	}
+}
+
+// updateMetricHandler handles updating metrics.
 func updateMetricHandler(storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		parts := strings.Split(r.URL.Path, "/")
-		const expectedPartsLength = 5
-		const expectedMetricMethod = "update"
-
-		if len(parts) != expectedPartsLength {
-			http.Error(w, "Invalid URL format", http.StatusNotFound)
-			return
-		}
-
-		metricMethod := parts[1]
-		metricType := parts[2]
-		metricName := parts[3]
-		metricValue := parts[4]
-
-		if metricMethod != expectedMetricMethod {
-			http.Error(w, "Metric method incorrect", http.StatusNotFound)
-			return
-		}
+		metricType := chi.URLParam(r, "type")
+		metricName := chi.URLParam(r, "name")
+		metricValue := chi.URLParam(r, "value")
 
 		if metricName == "" {
 			http.Error(w, "Metric name is required", http.StatusNotFound)
@@ -141,52 +140,33 @@ func updateMetricHandler(storage Storage) http.HandlerFunc {
 	}
 }
 
-// rootHandler http root handler.
-func rootHandler(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprintln(w, `<html>
-    <body>
-        <h2>Yandex practicum exporter</h2>
-        <p><a href="/metrics">View Metrics</a></p>
-    </body>
-</html>`)
-}
-
-// getAllMetricsHandler http handler for metric page.
-func getAllMetricsHandler(storage Storage) http.HandlerFunc {
+// getMetricHandler handles retrieving the value of a specific metric.
+func getMetricHandler(storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		metrics := storage.GetAllMetrics()
+		metricType := chi.URLParam(r, "type")
+		metricName := chi.URLParam(r, "name")
 
-		jsonResponse, err := json.MarshalIndent(metrics, "", "  ")
-		if err != nil {
-			http.Error(w, "Failed to encode metrics", http.StatusInternalServerError)
+		value, exists := storage.GetMetric(metricType, metricName)
+		if !exists {
+			http.Error(w, "Metric not found", http.StatusNotFound)
 			return
 		}
 
-		if _, err := w.Write(jsonResponse); err != nil {
-			http.Error(w, "Failed to write response", http.StatusInternalServerError)
-			return
-		}
+		w.Header().Set("Content-Type", "text/plain")
+		fmt.Fprintf(w, "%v", value)
 	}
 }
 
-// defaultHandler function of checking of acceptable http paths.
-func defaultHandler(storage Storage) http.HandlerFunc {
-	// Pattern for update
-	updatePathPattern := regexp.MustCompile(`^/update/(gauge|counter)/.*$`)
-
+// rootHandler handles the root URL and returns a list of all metrics.
+func rootHandler(storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/" && r.Method == http.MethodGet:
-			rootHandler(w)
-		case r.URL.Path == "/metrics" && r.Method == http.MethodGet:
-			getAllMetricsHandler(storage)(w, r)
-		case updatePathPattern.MatchString(r.URL.Path) && r.Method == http.MethodPost:
-			updateMetricHandler(storage)(w, r)
-		default:
-			http.Error(w, "Invalid request", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "text/html")
+		metrics := storage.GetAllMetrics()
+		fmt.Fprintln(w, "<html><body><h2>Metrics List</h2><ul>")
+		for name, value := range metrics {
+			fmt.Fprintf(w, "<li>%s: %v</li>", name, value)
 		}
+		fmt.Fprintln(w, "</ul></body></html>")
 	}
 }
 
@@ -194,11 +174,15 @@ func main() {
 	address := fmt.Sprintf("%s:%s", host, port)
 	storage := NewMemStorage()
 
-	mux := http.NewServeMux()
-	mux.Handle("/", defaultHandler(storage))
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+
+	r.Get("/", rootHandler(storage))
+	r.Get("/value/{type}/{name}", getMetricHandler(storage))
+	r.Post("/update/{type}/{name}/{value}", updateMetricHandler(storage))
 
 	log.Printf("Server is running on http://%s", address)
-	if err := http.ListenAndServe(address, mux); err != nil {
+	if err := http.ListenAndServe(address, r); err != nil {
 		log.Fatalf("could not start server: %v", err)
 	}
 }

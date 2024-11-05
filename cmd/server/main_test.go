@@ -1,19 +1,33 @@
 package main
 
 import (
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/go-chi/chi/v5"
 )
 
-// TestRootHandler Test root handler.
+func setupRouter(storage Storage) *chi.Mux {
+	r := chi.NewRouter()
+	r.Get("/", rootHandler(storage))
+	r.Get("/value/{type}/{name}", getMetricHandler(storage))
+	r.Post("/update/{type}/{name}/{value}", updateMetricHandler(storage))
+	return r
+}
+
 func TestRootHandler(t *testing.T) {
+	storage := NewMemStorage()
+	storage.UpdateGauge("testGauge", 123.45)
+	storage.UpdateCounter("testCounter", 100)
+
+	r := setupRouter(storage)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	rec := httptest.NewRecorder()
 
-	rootHandler(rec)
+	r.ServeHTTP(rec, req)
 
 	res := rec.Result()
 	defer func() {
@@ -37,46 +51,13 @@ func TestRootHandler(t *testing.T) {
 	}
 }
 
-// TestGetAllMetricsHandler Test getting of all metrics.
-func TestGetAllMetricsHandler(t *testing.T) {
-	storage := NewMemStorage()
-	storage.UpdateGauge("testGauge", 123.45)
-	storage.UpdateCounter("testCounter", 100)
-
-	req := httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody)
-	rec := httptest.NewRecorder()
-
-	getAllMetricsHandler(storage)(rec, req)
-
-	res := rec.Result()
-	defer func() {
-		if err := res.Body.Close(); err != nil {
-			t.Errorf("could not close response body: %v", err)
-		}
-	}()
-
-	if res.StatusCode != http.StatusOK {
-		t.Errorf("expected status %v; got %v", http.StatusOK, res.StatusCode)
-	}
-
-	var metrics map[string]interface{}
-	err := json.NewDecoder(res.Body).Decode(&metrics)
-	if err != nil {
-		t.Fatalf("could not decode response: %v", err)
-	}
-
-	if metrics["testGauge"] != 123.45 || metrics["testCounter"] != float64(100) {
-		t.Errorf("expected metrics to contain testGauge=123.45 and testCounter=100; got %v", metrics)
-	}
-}
-
-// TestUpdateMetricHandler Test metic update.
 func TestUpdateMetricHandler(t *testing.T) {
 	storage := NewMemStorage()
+	r := setupRouter(storage)
 	req := httptest.NewRequest(http.MethodPost, "/update/gauge/testGauge/123.45", http.NoBody)
 	rec := httptest.NewRecorder()
 
-	updateMetricHandler(storage)(rec, req)
+	r.ServeHTTP(rec, req)
 
 	res := rec.Result()
 	defer func() {
@@ -99,19 +80,20 @@ func TestUpdateMetricHandler(t *testing.T) {
 		t.Errorf("expected body to contain %q; got %q", expected, body)
 	}
 
-	// Checking that metica has been updated
 	if storage.GetAllMetrics()["testGauge"] != 123.45 {
 		t.Errorf("expected testGauge to be 123.45; got %v", storage.GetAllMetrics()["testGauge"])
 	}
 }
 
-// TestInvalidMethodHandler Test uncorrect request.
-func TestInvalidMethodHandler(t *testing.T) {
+func TestGetMetricHandler(t *testing.T) {
 	storage := NewMemStorage()
-	req := httptest.NewRequest(http.MethodGet, "/update/gauge/testGauge/123.45", http.NoBody)
+	storage.UpdateGauge("testGauge", 123.45)
+
+	r := setupRouter(storage)
+	req := httptest.NewRequest(http.MethodGet, "/value/gauge/testGauge", http.NoBody)
 	rec := httptest.NewRecorder()
 
-	updateMetricHandler(storage)(rec, req)
+	r.ServeHTTP(rec, req)
 
 	res := rec.Result()
 	defer func() {
@@ -120,18 +102,28 @@ func TestInvalidMethodHandler(t *testing.T) {
 		}
 	}()
 
-	if res.StatusCode != http.StatusMethodNotAllowed {
-		t.Errorf("expected status %v; got %v", http.StatusMethodNotAllowed, res.StatusCode)
+	if res.StatusCode != http.StatusOK {
+		t.Errorf("expected status %v; got %v", http.StatusOK, res.StatusCode)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatalf("could not read response body: %v", err)
+	}
+
+	expected := "123.45"
+	if strings.TrimSpace(string(body)) != expected {
+		t.Errorf("expected body to contain %q; got %q", expected, body)
 	}
 }
 
-// TestDefaultHandlerInvalidPath Test unknown handler paths.
-func TestDefaultHandlerInvalidPath(t *testing.T) {
+func TestInvalidRequest(t *testing.T) {
 	storage := NewMemStorage()
-	req := httptest.NewRequest(http.MethodGet, "/unknown", http.NoBody)
+	r := setupRouter(storage)
+	req := httptest.NewRequest(http.MethodGet, "/invalid", http.NoBody)
 	rec := httptest.NewRecorder()
 
-	defaultHandler(storage)(rec, req)
+	r.ServeHTTP(rec, req)
 
 	res := rec.Result()
 	defer func() {
@@ -140,7 +132,7 @@ func TestDefaultHandlerInvalidPath(t *testing.T) {
 		}
 	}()
 
-	if res.StatusCode != http.StatusBadRequest {
-		t.Errorf("expected status %v; got %v", http.StatusBadRequest, res.StatusCode)
+	if res.StatusCode != http.StatusNotFound {
+		t.Errorf("expected status %v; got %v", http.StatusNotFound, res.StatusCode)
 	}
 }
