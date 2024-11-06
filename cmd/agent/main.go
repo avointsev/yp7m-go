@@ -1,9 +1,9 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"math/rand"
-	"net"
 	"net/http"
 	"runtime"
 	"strconv"
@@ -11,18 +11,29 @@ import (
 )
 
 var (
-	host = "localhost"
-	port = "8080"
-)
-
-var (
-	pollInterval   = 2 * time.Second
-	reportInterval = 10 * time.Second
+	flagAddr      string
+	flagReportInt int
+	flagPollInt   int
 )
 
 type Metrics struct {
 	Gauges   map[string]float64
 	Counters map[string]int64
+}
+
+func init() {
+	defaultReportInt := 10
+	defaultPollInt := 2
+
+	flag.StringVar(&flagAddr, "a", "localhost:8080", "HTTP server endpoint address (default: localhost:8080)")
+	flag.IntVar(&flagReportInt, "r", defaultReportInt, "Report interval in seconds (default: 10)")
+	flag.IntVar(&flagPollInt, "p", defaultPollInt, "Poll interval in seconds (default: 2)")
+
+	if len(flag.Args()) > 0 {
+		fmt.Println("Unknown flags:", flag.Args())
+		flag.Usage()
+		panic("Terminating due to unknown flags")
+	}
 }
 
 func newMetrics() *Metrics {
@@ -103,7 +114,7 @@ func (m *Metrics) updateMetrics() {
 }
 
 func (m *Metrics) sendMetric(metricType, name string, value interface{}) {
-	url := fmt.Sprintf("http://%s/update/%s/%s/%v", net.JoinHostPort(host, port), metricType, name, value)
+	url := fmt.Sprintf("http://%s/update/%s/%s/%v", flagAddr, metricType, name, value)
 
 	req, err := http.NewRequest(http.MethodPost, url, http.NoBody)
 	if err != nil {
@@ -139,10 +150,12 @@ func (m *Metrics) reportMetrics() {
 }
 
 func main() {
+	flag.Parse()
+
 	metrics := newMetrics()
 
-	tickerPoll := time.NewTicker(pollInterval)
-	tickerReport := time.NewTicker(reportInterval)
+	tickerPoll := time.NewTicker(time.Duration(flagPollInt) * time.Second)
+	tickerReport := time.NewTicker(time.Duration(flagReportInt) * time.Second)
 
 	for {
 		select {

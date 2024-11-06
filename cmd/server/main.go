@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -12,8 +13,7 @@ import (
 )
 
 var (
-	host = "localhost"
-	port = "8080"
+	flagAddr string
 )
 
 // MetricType defines metric types.
@@ -37,6 +37,16 @@ type MemStorage struct {
 	gauges   map[string]float64
 	counters map[string]int64
 	mu       sync.Mutex
+}
+
+func init() {
+	flag.StringVar(&flagAddr, "a", "localhost:8080", "HTTP server address (default: localhost:8080)")
+
+	if len(flag.Args()) > 0 {
+		fmt.Println("Unknown flags:", flag.Args())
+		flag.Usage()
+		panic("Terminating due to unknown flags")
+	}
 }
 
 // NewMemStorage creates a new instance of MemStorage.
@@ -171,7 +181,8 @@ func rootHandler(storage Storage) http.HandlerFunc {
 }
 
 func main() {
-	address := fmt.Sprintf("%s:%s", host, port)
+	flag.Parse()
+
 	storage := NewMemStorage()
 
 	r := chi.NewRouter()
@@ -181,8 +192,8 @@ func main() {
 	r.Get("/value/{type}/{name}", getMetricHandler(storage))
 	r.Post("/update/{type}/{name}/{value}", updateMetricHandler(storage))
 
-	log.Printf("Server is running on http://%s", address)
-	if err := http.ListenAndServe(address, r); err != nil {
+	log.Printf("Server is running on http://%s", flagAddr)
+	if err := http.ListenAndServe(flagAddr, r); err != nil {
 		log.Fatalf("could not start server: %v", err)
 	}
 }

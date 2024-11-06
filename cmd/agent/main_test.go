@@ -1,92 +1,145 @@
 package main
 
 import (
+	"bytes"
+	"flag"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
 
-// TestUpdateMetrics Test updating metrics using data from runtime and random values.
+// TestFlagDefaults checks that default flag values are set correctly.
+func TestFlagDefaults(t *testing.T) {
+	testFlags := flag.NewFlagSet("test_flags", flag.ExitOnError)
+	var testFlagAddr string
+	var testFlagReportInt, testFlagPollInt int
+
+	// Define flags in the new FlagSet
+	testFlags.StringVar(&testFlagAddr, "a", "localhost:8080", "HTTP server endpoint address")
+	testFlags.IntVar(&testFlagReportInt, "r", 10, "Report interval in seconds")
+	testFlags.IntVar(&testFlagPollInt, "p", 2, "Poll interval in seconds")
+
+	// Parse the flags (no custom values are provided, so defaults are used)
+	if err := testFlags.Parse([]string{}); err != nil {
+		t.Fatalf("Failed to parse flags: %v", err)
+	}
+
+	if testFlagAddr != "localhost:8080" {
+		t.Errorf("Expected default address to be 'localhost:8080', got %s", testFlagAddr)
+	}
+	if testFlagReportInt != 10 {
+		t.Errorf("Expected default report interval to be 10, got %d", testFlagReportInt)
+	}
+	if testFlagPollInt != 2 {
+		t.Errorf("Expected default poll interval to be 2, got %d", testFlagPollInt)
+	}
+}
+
+// TestInvalidFlags checks that the program exits correctly when unknown flags are provided.
+func TestInvalidFlags(t *testing.T) {
+	var buf bytes.Buffer
+
+	// Create a new FlagSet for testing unknown flags
+	testFlags := flag.NewFlagSet("test_invalid_flags", flag.ContinueOnError)
+	testFlags.SetOutput(&buf)
+
+	// Define flags in the new FlagSet
+	testFlags.StringVar(&flagAddr, "a", "localhost:8080", "HTTP server endpoint address")
+	testFlags.IntVar(&flagReportInt, "r", 10, "Report interval in seconds")
+	testFlags.IntVar(&flagPollInt, "p", 2, "Poll interval in seconds")
+
+	// Parse an unknown flag
+	err := testFlags.Parse([]string{"-unknown"})
+
+	// Check if error contains "unknown flag" warning
+	if err == nil || !bytes.Contains(buf.Bytes(), []byte("flag provided but not defined")) {
+		t.Error("Expected error message for unknown flag")
+	}
+}
+
+// TestNewMetrics checks the initialization of the Metrics structure.
+func TestNewMetrics(t *testing.T) {
+	metrics := newMetrics()
+
+	if len(metrics.Gauges) == 0 {
+		t.Error("Expected non-empty Gauges map")
+	}
+	if len(metrics.Counters) == 0 {
+		t.Error("Expected non-empty Counters map")
+	}
+
+	// Check that specific keys are present in metrics
+	if _, ok := metrics.Gauges["Alloc"]; !ok {
+		t.Error("Expected Alloc metric in Gauges")
+	}
+	if _, ok := metrics.Counters["PollCount"]; !ok {
+		t.Error("Expected PollCount metric in Counters")
+	}
+}
+
+// TestUpdateMetrics checks that metric values are updated correctly.
 func TestUpdateMetrics(t *testing.T) {
 	metrics := newMetrics()
 	metrics.updateMetrics()
 
-	// Check that gauge metrics are updated (values are non-zero).
+	// Check that some metrics have been updated to non-zero values
 	if metrics.Gauges["Alloc"] == 0 {
-		t.Errorf("Expected Alloc to be updated, got 0")
+		t.Error("Expected Alloc to be updated to a non-zero value")
+	}
+	if metrics.Counters["PollCount"] != 1 {
+		t.Errorf("Expected PollCount to increment, got %d", metrics.Counters["PollCount"])
 	}
 	if metrics.Gauges["RandomValue"] < 0 || metrics.Gauges["RandomValue"] > 100 {
-		t.Errorf("Expected RandomValue to be in range 0-100, got %v", metrics.Gauges["RandomValue"])
-	}
-
-	// Check that PollCount counter increments.
-	initialPollCount := metrics.Counters["PollCount"]
-	metrics.updateMetrics()
-	if metrics.Counters["PollCount"] != initialPollCount+1 {
-		t.Errorf("Expected PollCount to increment by 1, got %v", metrics.Counters["PollCount"])
+		t.Errorf("Expected RandomValue in range 0-100, got %v", metrics.Gauges["RandomValue"])
 	}
 }
 
-// TestSendMetric Test sending a metric to the server using a mock server.
+// TestSendMetric checks that the metric sending function works correctly.
 func TestSendMetric(t *testing.T) {
 	metrics := newMetrics()
 
-	// Create a test server that checks request correctness.
+	// Create a test server to check metric sending
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("Expected POST request, got %s", r.Method)
 		}
-
-		// Check the header.
+		if !strings.Contains(r.URL.Path, "gauge/Alloc/") {
+			t.Errorf("Expected URL path to contain 'gauge/Alloc/', got %s", r.URL.Path)
+		}
 		if r.Header.Get("Content-Type") != "text/plain" {
 			t.Errorf("Expected Content-Type to be text/plain, got %s", r.Header.Get("Content-Type"))
-		}
-
-		// Check the URL format.
-		expectedPath := "/update/gauge/Alloc/"
-		if r.URL.Path[:len(expectedPath)] != expectedPath {
-			t.Errorf("Expected URL path to start with %s, got %s", expectedPath, r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
-	serverURL, err := url.Parse(server.URL)
-	if err != nil {
-		t.Fatalf("Error parsing server URL: %v", err)
-	}
-	host = serverURL.Hostname()
-	port = serverURL.Port()
-
+	flagAddr = strings.TrimPrefix(server.URL, "http://")
 	metrics.sendMetric("gauge", "Alloc", strconv.FormatFloat(rand.Float64()*100, 'f', -1, 64))
 }
 
-// TestReportMetrics Test sending all metrics to the server.
+// TestReportMetrics checks the sending of all metrics.
 func TestReportMetrics(t *testing.T) {
 	metrics := newMetrics()
 	metrics.updateMetrics()
 
+	// Counter to check that all metrics are sent
 	counter := 0
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		counter++
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
-	serverURL, err := url.Parse(server.URL)
-	if err != nil {
-		t.Fatalf("Error parsing server URL: %v", err)
-	}
-	host = serverURL.Hostname()
-	port = serverURL.Port()
-
+	flagAddr = strings.TrimPrefix(server.URL, "http://")
 	metrics.reportMetrics()
 
-	// Check that the expected number of metrics were sent.
+	// Check that the expected number of metrics were sent
 	expectedCount := len(metrics.Gauges) + len(metrics.Counters)
 	if counter != expectedCount {
 		t.Errorf("Expected %d metrics to be reported, got %d", expectedCount, counter)
@@ -100,24 +153,21 @@ func TestMainLoop(t *testing.T) {
 	pollDone := make(chan bool)
 	reportDone := make(chan bool)
 
-	// Start a server to check report sending.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reportDone <- true
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
-	// Parse the server URL and set host and port.
 	serverURL, err := url.Parse(server.URL)
 	if err != nil {
 		t.Fatalf("Error parsing server URL: %v", err)
 	}
-	host = serverURL.Hostname()
-	port = serverURL.Port()
+	flagAddr = serverURL.Host
 
-	// Override intervals.
-	pollInterval = 1 * time.Second
-	reportInterval = 3 * time.Second
+	// Override flag values for polling and reporting intervals.
+	flagPollInt = 1   // poll interval in seconds.
+	flagReportInt = 3 // report interval in seconds.
 
 	go func() {
 		metrics.updateMetrics()
@@ -130,13 +180,13 @@ func TestMainLoop(t *testing.T) {
 
 	select {
 	case <-pollDone:
-	case <-time.After(2 * pollInterval):
+	case <-time.After(2 * time.Duration(flagPollInt) * time.Second):
 		t.Errorf("Poll metrics function timed out")
 	}
 
 	select {
 	case <-reportDone:
-	case <-time.After(2 * reportInterval):
+	case <-time.After(2 * time.Duration(flagReportInt) * time.Second):
 		t.Errorf("Report metrics function timed out")
 	}
 }
