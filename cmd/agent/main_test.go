@@ -13,6 +13,31 @@ import (
 	"time"
 )
 
+// TestEnvVariables checks if environment variables work correctly.
+func TestEnvVariables(t *testing.T) {
+	t.Setenv("ADDRESS", "envhost:9090")
+	t.Setenv("REPORT_INTERVAL", "15")
+	t.Setenv("POLL_INTERVAL", "5")
+
+	flagAddr = "flaghost:8081"
+	flagReportInt = 10
+	flagPollInt = 2
+
+	address := getEnvOrFlag("ADDRESS", flagAddr, "localhost:8080")
+	reportInterval := time.Duration(getIntEnvOrFlag("REPORT_INTERVAL", flagReportInt, 10)) * time.Second
+	pollInterval := time.Duration(getIntEnvOrFlag("POLL_INTERVAL", flagPollInt, 2)) * time.Second
+
+	if address != "envhost:9090" {
+		t.Errorf("Expected address to be 'envhost:9090' from environment variable, got %s", address)
+	}
+	if reportInterval != 15*time.Second {
+		t.Errorf("Expected reportInterval to be 15 seconds from environment variable, got %v", reportInterval)
+	}
+	if pollInterval != 5*time.Second {
+		t.Errorf("Expected pollInterval to be 5 seconds from environment variable, got %v", pollInterval)
+	}
+}
+
 // TestFlagDefaults checks that default flag values are set correctly.
 func TestFlagDefaults(t *testing.T) {
 	testFlags := flag.NewFlagSet("test_flags", flag.ExitOnError)
@@ -118,8 +143,9 @@ func TestSendMetric(t *testing.T) {
 	}))
 	defer server.Close()
 
-	flagAddr = strings.TrimPrefix(server.URL, "http://")
-	metrics.sendMetric("gauge", "Alloc", strconv.FormatFloat(rand.Float64()*100, 'f', -1, 64))
+	serverURL, _ := url.Parse(server.URL)
+	destAddress := serverURL.Host
+	metrics.sendMetric(destAddress, "gauge", "Alloc", strconv.FormatFloat(rand.Float64()*100, 'f', -1, 64))
 }
 
 // TestReportMetrics checks the sending of all metrics.
@@ -136,8 +162,10 @@ func TestReportMetrics(t *testing.T) {
 	}))
 	defer server.Close()
 
-	flagAddr = strings.TrimPrefix(server.URL, "http://")
-	metrics.reportMetrics()
+	serverURL, _ := url.Parse(server.URL)
+	destAddress := serverURL.Host
+
+	metrics.reportMetrics(destAddress)
 
 	// Check that the expected number of metrics were sent
 	expectedCount := len(metrics.Gauges) + len(metrics.Counters)
@@ -159,11 +187,8 @@ func TestMainLoop(t *testing.T) {
 	}))
 	defer server.Close()
 
-	serverURL, err := url.Parse(server.URL)
-	if err != nil {
-		t.Fatalf("Error parsing server URL: %v", err)
-	}
-	flagAddr = serverURL.Host
+	serverURL, _ := url.Parse(server.URL)
+	destAddress := serverURL.Host
 
 	// Override flag values for polling and reporting intervals.
 	flagPollInt = 1   // poll interval in seconds.
@@ -175,7 +200,7 @@ func TestMainLoop(t *testing.T) {
 	}()
 
 	go func() {
-		metrics.reportMetrics()
+		metrics.reportMetrics(destAddress)
 	}()
 
 	select {

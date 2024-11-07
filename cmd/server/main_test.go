@@ -12,6 +12,18 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// TestEnvVariables checks if environment variable works correctly.
+func TestEnvVariables(t *testing.T) {
+	t.Setenv("ADDRESS", "envhost:9090")
+	flagAddr = "flaghost:8081"
+
+	address := getEnvOrFlag("ADDRESS", flagAddr, "localhost:8080")
+
+	if address != "envhost:9090" {
+		t.Errorf("Expected address to be 'envhost:9090' from environment variable, got %s", address)
+	}
+}
+
 // setupRouter creates and returns a new chi router for testing.
 func setupRouter(storage Storage) *chi.Mux {
 	r := chi.NewRouter()

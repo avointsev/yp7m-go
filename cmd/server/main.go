@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 
@@ -13,7 +14,8 @@ import (
 )
 
 var (
-	flagAddr string
+	flagAddr        string
+	defaultflagAddr string = "localhost:8080"
 )
 
 // MetricType defines metric types.
@@ -47,6 +49,16 @@ func init() {
 		flag.Usage()
 		panic("Terminating due to unknown flags")
 	}
+}
+
+func getEnvOrFlag(envVar string, flagValue string, defaultValue string) string {
+	if value, exists := os.LookupEnv(envVar); exists {
+		return value
+	}
+	if flagValue != "" {
+		return flagValue
+	}
+	return defaultValue
 }
 
 // NewMemStorage creates a new instance of MemStorage.
@@ -183,6 +195,8 @@ func rootHandler(storage Storage) http.HandlerFunc {
 func main() {
 	flag.Parse()
 
+	address := getEnvOrFlag("ADDRESS", flagAddr, defaultflagAddr)
+
 	storage := NewMemStorage()
 
 	r := chi.NewRouter()
@@ -192,8 +206,8 @@ func main() {
 	r.Get("/value/{type}/{name}", getMetricHandler(storage))
 	r.Post("/update/{type}/{name}/{value}", updateMetricHandler(storage))
 
-	log.Printf("Server is running on http://%s", flagAddr)
-	if err := http.ListenAndServe(flagAddr, r); err != nil {
+	log.Printf("Server is running on http://%s", address)
+	if err := http.ListenAndServe(address, r); err != nil {
 		log.Fatalf("could not start server: %v", err)
 	}
 }

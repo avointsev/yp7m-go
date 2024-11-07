@@ -5,15 +5,19 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"os"
 	"runtime"
 	"strconv"
 	"time"
 )
 
 var (
-	flagAddr      string
-	flagReportInt int
-	flagPollInt   int
+	flagAddr         string
+	flagReportInt    int
+	flagPollInt      int
+	defaultflagAddr  string = "localhost:8080"
+	defaultReportInt int    = 10
+	defaultPollInt   int    = 2
 )
 
 type Metrics struct {
@@ -22,9 +26,6 @@ type Metrics struct {
 }
 
 func init() {
-	defaultReportInt := 10
-	defaultPollInt := 2
-
 	flag.StringVar(&flagAddr, "a", "localhost:8080", "HTTP server endpoint address (default: localhost:8080)")
 	flag.IntVar(&flagReportInt, "r", defaultReportInt, "Report interval in seconds (default: 10)")
 	flag.IntVar(&flagPollInt, "p", defaultPollInt, "Poll interval in seconds (default: 2)")
@@ -34,6 +35,29 @@ func init() {
 		flag.Usage()
 		panic("Terminating due to unknown flags")
 	}
+}
+
+func getEnvOrFlag(envVar string, flagValue string, defaultValue string) string {
+	if value, exists := os.LookupEnv(envVar); exists {
+		return value
+	}
+	if flagValue != "" {
+		return flagValue
+	}
+	return defaultValue
+}
+
+func getIntEnvOrFlag(envVar string, flagValue int, defaultValue int) int {
+	if value, exists := os.LookupEnv(envVar); exists {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+		fmt.Printf("Invalid value for environment variable %s .Will use default value.", envVar)
+	}
+	if flagValue != 0 {
+		return flagValue
+	}
+	return defaultValue
 }
 
 func newMetrics() *Metrics {
@@ -113,8 +137,8 @@ func (m *Metrics) updateMetrics() {
 	m.Counters["PollCount"]++
 }
 
-func (m *Metrics) sendMetric(metricType, name string, value interface{}) {
-	url := fmt.Sprintf("http://%s/update/%s/%s/%v", flagAddr, metricType, name, value)
+func (m *Metrics) sendMetric(destAddress string, metricType string, name string, value interface{}) {
+	url := fmt.Sprintf("http://%s/update/%s/%s/%v", destAddress, metricType, name, value)
 
 	req, err := http.NewRequest(http.MethodPost, url, http.NoBody)
 	if err != nil {
@@ -140,29 +164,33 @@ func (m *Metrics) sendMetric(metricType, name string, value interface{}) {
 	}
 }
 
-func (m *Metrics) reportMetrics() {
+func (m *Metrics) reportMetrics(destAddress string) {
 	for name, value := range m.Gauges {
-		m.sendMetric("gauge", name, strconv.FormatFloat(value, 'f', -1, 64))
+		m.sendMetric(destAddress, "gauge", name, strconv.FormatFloat(value, 'f', -1, 64))
 	}
 	for name, value := range m.Counters {
-		m.sendMetric("counter", name, value)
+		m.sendMetric(destAddress, "counter", name, value)
 	}
 }
 
 func main() {
 	flag.Parse()
 
+	address := getEnvOrFlag("ADDRESS", flagAddr, defaultflagAddr)
+	reportInterval := time.Duration(getIntEnvOrFlag("REPORT_INTERVAL", flagReportInt, defaultReportInt)) * time.Second
+	pollInterval := time.Duration(getIntEnvOrFlag("POLL_INTERVAL", flagPollInt, defaultPollInt)) * time.Second
+
 	metrics := newMetrics()
 
-	tickerPoll := time.NewTicker(time.Duration(flagPollInt) * time.Second)
-	tickerReport := time.NewTicker(time.Duration(flagReportInt) * time.Second)
+	tickerPoll := time.NewTicker(reportInterval)
+	tickerReport := time.NewTicker(pollInterval)
 
 	for {
 		select {
 		case <-tickerPoll.C:
 			metrics.updateMetrics()
 		case <-tickerReport.C:
-			metrics.reportMetrics()
+			metrics.reportMetrics(address)
 		}
 	}
 }
