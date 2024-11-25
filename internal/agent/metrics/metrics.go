@@ -96,8 +96,6 @@ func (m *MetricType) UpdateMetrics() {
 func (m *MetricType) SendMetric(destAddress string, metricatype string, name string, value interface{}) {
 	url := fmt.Sprintf("http://%s/update/%s/%s/%v", destAddress, metricatype, name, value)
 
-	fmt.Printf(url)
-	
 	req, err := http.NewRequest(http.MethodPost, url, http.NoBody)
 	if err != nil {
 		log.Printf("%s: %v", logger.ErrAgentCreateRequest, err)
