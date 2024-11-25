@@ -82,16 +82,13 @@ func GetMetricHandler(store storage.StorageType) http.HandlerFunc {
 		if err != nil {
 			switch err.Error() {
 			case logger.ErrMetricInvalidType:
-				http.Error(w, logger.ErrMetricInvalidType, http.StatusBadRequest)
-				log.Printf(logger.LogDefaultFormat, logger.ErrMetricNotFound, metricType)
+				http.Error(w, logger.ErrMetricInvalidType, http.StatusNotFound)
 				return
 			case logger.ErrMetricNotFound:
 				http.Error(w, logger.ErrMetricNotFound, http.StatusNotFound)
-				log.Printf(logger.LogDefaultFormat, logger.ErrMetricNotFound, metricName)
 				return
 			default:
 				http.Error(w, logger.ErrServerInternalError, http.StatusInternalServerError)
-				log.Printf("%s: %v", logger.ErrServerInternalError, err)
 				return
 			}
 		}
