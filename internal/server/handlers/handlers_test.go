@@ -84,7 +84,6 @@ func TestUpdateMetricHandler(t *testing.T) {
 		t.Errorf("expected body to contain %q; got %q", expected, body)
 	}
 
-	// Verify that the metric value has been updated.
 	if store.GetAllMetrics()["testGauge"] != 123.45 {
 		t.Errorf("expected testGauge to be 123.45; got %v", store.GetAllMetrics()["testGauge"])
 	}

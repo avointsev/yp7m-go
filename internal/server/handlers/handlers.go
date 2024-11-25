@@ -39,7 +39,7 @@ func UpdateMetricHandler(store storage.StorageType) http.HandlerFunc {
 				return
 			}
 			store.UpdateGauge(metricName, value)
-			responseMessage = "Gauge " + metricName + " " + logger.OkMetricUpdated
+			responseMessage = "Metric " + metricName + " " + logger.OkUpdated
 
 		case Counter:
 			value, err := strconv.ParseInt(metricValue, 10, 64)
@@ -54,7 +54,7 @@ func UpdateMetricHandler(store storage.StorageType) http.HandlerFunc {
 				return
 			}
 			store.UpdateCounter(metricName, value)
-			responseMessage = "Counter " + metricName + " " + logger.OkMetricUpdated
+			responseMessage = "Metric " + metricName + " " + logger.OkUpdated
 
 		default:
 			http.Error(w, logger.ErrMetricInvalidType, http.StatusBadRequest)
@@ -104,7 +104,7 @@ func GetMetricHandler(store storage.StorageType) http.HandlerFunc {
 			log.Printf("%s: expected float64 but got %T", logger.ErrMetricInvalidType, value)
 			return
 		}
-		valueStr := strconv.FormatFloat(floatValue, 'f', 0, 64)
+		valueStr := strconv.FormatFloat(floatValue, 'f', 2, 64)
 		_, err = w.Write([]byte(valueStr))
 		if err != nil {
 			http.Error(w, logger.ErrWriteResponce, http.StatusInternalServerError)

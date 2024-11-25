@@ -10,7 +10,7 @@ const (
 	ErrMetricInvalidGaugeValue   = "Invalid gauge value"
 	ErrMetricInvalidCounterValue = "Invalid counter value"
 	ErrWriteResponce             = "Failed to write response"
-	OkMetricUpdated              = "metric updated successfully"
+	OkUpdated                    = "updated successfully"
 
 	ErrHTMLTemplateParse   = "Failed to parse template"
 	ErrHTMLTemplateExecute = "Failed to execute template"
