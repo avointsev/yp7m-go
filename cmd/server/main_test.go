@@ -61,11 +61,6 @@ func TestMainFunction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			t.Errorf("error closing response body: %v", closeErr)
-		}
-	}()
 
 	resp, err = http.DefaultClient.Do(req)
 	if err != nil {
