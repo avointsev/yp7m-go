@@ -364,7 +364,7 @@ linters-settings:
     # - "default": report only the default slog logger
     no-global: "all"
     # Enforce using methods that accept a context.
-    context-only: true
+    context: "all"
     # Enforce using static values for log messages.
     static-msg: false
     # Enforce using constants instead of raw keys.
@@ -486,7 +486,6 @@ linters:
     - errcheck
     - errname
     - errorlint
-    - execinquery
     - exhaustive
     - forcetypeassert
     - gocheckcompilerdirectives
@@ -495,7 +494,7 @@ linters:
     - godot
     - gofmt
     - goimports
-    - gomnd
+    - mnd
     - goprintffuncname
     - gosec
     - gosimple

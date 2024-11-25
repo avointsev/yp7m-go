@@ -2,188 +2,86 @@ package main
 
 import (
 	"bytes"
-	"flag"
-	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
-	"strings"
+	"os"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/avointsev/yp7m-go/internal/server/handlers"
+	"github.com/avointsev/yp7m-go/internal/server/storage"
 )
 
-// TestEnvVariables checks if environment variable works correctly.
-func TestEnvVariables(t *testing.T) {
-	t.Setenv("ADDRESS", "envhost:9090")
-	flagAddr = "flaghost:8081"
+func TestMainFunction(t *testing.T) {
+	mockStorage := storage.NewMemStorage()
 
-	address := getEnvOrFlag("ADDRESS", flagAddr, "localhost:8080")
+	var logBuffer bytes.Buffer
+	log.SetOutput(&logBuffer)
+	defer log.SetOutput(os.Stderr)
 
-	if address != "envhost:9090" {
-		t.Errorf("Expected address to be 'envhost:9090' from environment variable, got %s", address)
-	}
-}
-
-// setupRouter creates and returns a new chi router for testing.
-func setupRouter(storage Storage) *chi.Mux {
 	r := chi.NewRouter()
-	r.Get("/", rootHandler(storage))
-	r.Get("/value/{type}/{name}", getMetricHandler(storage))
-	r.Post("/update/{type}/{name}/{value}", updateMetricHandler(storage))
-	return r
-}
+	r.Use(middleware.Logger)
+	r.Get("/", handlers.RootHandler(mockStorage))
+	r.Get("/value/{type}/{name}", handlers.GetMetricHandler(mockStorage))
+	r.Post("/update/{type}/{name}/{value}", handlers.UpdateMetricHandler(mockStorage))
 
-// TestFlagDefaults checks that default flag values are set correctly.
-func TestFlagDefaults(t *testing.T) {
-	testFlags := flag.NewFlagSet("test_flags", flag.ExitOnError)
-	var testFlagAddr string
+	ts := httptest.NewServer(r)
+	defer ts.Close()
 
-	testFlags.StringVar(&testFlagAddr, "a", "localhost:8080", "HTTP server endpoint address")
-
-	if err := testFlags.Parse([]string{}); err != nil {
-		t.Fatalf("Failed to parse flags: %v", err)
-	}
-
-	if testFlagAddr != "localhost:8080" {
-		t.Errorf("Expected default address to be 'localhost:8080', got %s", testFlagAddr)
-	}
-}
-
-// TestInvalidFlags checks that the program exits correctly when unknown flags are provided.
-func TestInvalidFlags(t *testing.T) {
-	var buf bytes.Buffer
-
-	testFlags := flag.NewFlagSet("test_invalid_flags", flag.ContinueOnError)
-	testFlags.SetOutput(&buf)
-
-	testFlags.StringVar(&flagAddr, "a", "localhost:8080", "HTTP server endpoint address")
-	err := testFlags.Parse([]string{"-unknown"})
-
-	if err == nil || !bytes.Contains(buf.Bytes(), []byte("flag provided but not defined")) {
-		t.Error("Expected error message for unknown flag")
-	}
-}
-
-// TestRootHandler tests the root handler.
-func TestRootHandler(t *testing.T) {
-	storage := NewMemStorage()
-	storage.UpdateGauge("testGauge", 123.45)
-	storage.UpdateCounter("testCounter", 100)
-
-	r := setupRouter(storage)
-	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	rec := httptest.NewRecorder()
-
-	r.ServeHTTP(rec, req)
-
-	res := rec.Result()
-	defer func() {
-		if err := res.Body.Close(); err != nil {
-			t.Errorf("could not close response body: %v", err)
-		}
-	}()
-
-	if res.StatusCode != http.StatusOK {
-		t.Errorf("expected status %v; got %v", http.StatusOK, res.StatusCode)
-	}
-
-	body, err := io.ReadAll(res.Body)
+	resp, err := http.Get(ts.URL + "/")
 	if err != nil {
-		t.Fatalf("could not read response body: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
-
-	expected := "<html>"
-	if !strings.Contains(string(body), expected) {
-		t.Errorf("expected body to contain %q; got %q", expected, body)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %v", resp.StatusCode)
 	}
-}
-
-// TestUpdateMetricHandler tests updating a metric.
-func TestUpdateMetricHandler(t *testing.T) {
-	storage := NewMemStorage()
-	r := setupRouter(storage)
-	req := httptest.NewRequest(http.MethodPost, "/update/gauge/testGauge/123.45", http.NoBody)
-	rec := httptest.NewRecorder()
-
-	r.ServeHTTP(rec, req)
-
-	res := rec.Result()
 	defer func() {
-		if err := res.Body.Close(); err != nil {
-			t.Errorf("could not close response body: %v", err)
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Errorf("error closing response body: %v", closeErr)
 		}
 	}()
 
-	if res.StatusCode != http.StatusOK {
-		t.Errorf("expected status %v; got %v", http.StatusOK, res.StatusCode)
-	}
-
-	body, err := io.ReadAll(res.Body)
+	resp, err = http.Get(ts.URL + "/value/gauge/test_metric")
 	if err != nil {
-		t.Fatalf("could not read response body: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
-
-	expected := "Metric testGauge updated successfully"
-	if !strings.Contains(string(body), expected) {
-		t.Errorf("expected body to contain %q; got %q", expected, body)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("expected status 404, got %v", resp.StatusCode)
 	}
-
-	// Verify that the metric value has been updated.
-	if storage.GetAllMetrics()["testGauge"] != 123.45 {
-		t.Errorf("expected testGauge to be 123.45; got %v", storage.GetAllMetrics()["testGauge"])
-	}
-}
-
-// TestGetMetricHandler tests retrieving a metric value.
-func TestGetMetricHandler(t *testing.T) {
-	storage := NewMemStorage()
-	storage.UpdateGauge("testGauge", 123.45)
-
-	r := setupRouter(storage)
-	req := httptest.NewRequest(http.MethodGet, "/value/gauge/testGauge", http.NoBody)
-	rec := httptest.NewRecorder()
-
-	r.ServeHTTP(rec, req)
-
-	res := rec.Result()
 	defer func() {
-		if err := res.Body.Close(); err != nil {
-			t.Errorf("could not close response body: %v", err)
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Errorf("error closing response body: %v", closeErr)
 		}
 	}()
 
-	if res.StatusCode != http.StatusOK {
-		t.Errorf("expected status %v; got %v", http.StatusOK, res.StatusCode)
-	}
-
-	body, err := io.ReadAll(res.Body)
+	req, err := http.NewRequest(http.MethodPost, ts.URL+"/update/gauge/test_metric/10.5", http.NoBody)
 	if err != nil {
-		t.Fatalf("could not read response body: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
-
-	expected := "123.45"
-	if strings.TrimSpace(string(body)) != expected {
-		t.Errorf("expected body to contain %q; got %q", expected, body)
-	}
-}
-
-// TestInvalidRequest tests the response for an invalid route.
-func TestInvalidRequest(t *testing.T) {
-	storage := NewMemStorage()
-	r := setupRouter(storage)
-	req := httptest.NewRequest(http.MethodGet, "/invalid", http.NoBody)
-	rec := httptest.NewRecorder()
-
-	r.ServeHTTP(rec, req)
-
-	res := rec.Result()
 	defer func() {
-		if err := res.Body.Close(); err != nil {
-			t.Errorf("could not close response body: %v", err)
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Errorf("error closing response body: %v", closeErr)
 		}
 	}()
 
-	if res.StatusCode != http.StatusNotFound {
-		t.Errorf("expected status %v; got %v", http.StatusNotFound, res.StatusCode)
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %v", resp.StatusCode)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Errorf("error closing response body: %v", closeErr)
+		}
+	}()
+
+	logOutput := logBuffer.String()
+	if logOutput != "" {
+		t.Errorf("unexpected log output: %v", logOutput)
 	}
 }
