@@ -82,7 +82,7 @@ func GetMetricHandler(store storage.StorageType) http.HandlerFunc {
 		if err != nil {
 			switch err.Error() {
 			case logger.ErrMetricInvalidType:
-				http.Error(w, logger.ErrMetricInvalidType, http.StatusNotFound)
+				http.Error(w, logger.ErrMetricInvalidType, http.StatusBadRequest)
 				return
 			case logger.ErrMetricNotFound:
 				http.Error(w, logger.ErrMetricNotFound, http.StatusNotFound)
@@ -95,17 +95,37 @@ func GetMetricHandler(store storage.StorageType) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "text/plain")
 
-		floatValue, ok := value.(float64)
-		if !ok {
-			http.Error(w, logger.ErrMetricInvalidType, http.StatusInternalServerError)
-			log.Printf("%s: expected float64 but got %T", logger.ErrMetricInvalidType, value)
-			return
-		}
-		valueStr := strconv.FormatFloat(floatValue, 'f', 2, 64)
-		_, err = w.Write([]byte(valueStr))
-		if err != nil {
-			http.Error(w, logger.ErrWriteResponce, http.StatusInternalServerError)
-			log.Printf("%s for metric %s: %v", logger.ErrWriteResponce, metricName, err)
+		switch metricType {
+		case "gauge":
+			floatValue, ok := value.(float64)
+			if !ok {
+				http.Error(w, logger.ErrMetricInvalidType, http.StatusInternalServerError)
+				log.Printf("%s: expected float64 but got %T", logger.ErrMetricInvalidType, value)
+				return
+			}
+			valueStr := strconv.FormatFloat(floatValue, 'f', 3, 64)
+			_, err = w.Write([]byte(valueStr))
+			if err != nil {
+				http.Error(w, logger.ErrWriteResponce, http.StatusInternalServerError)
+				log.Printf("%s for metric %s: %v", logger.ErrWriteResponce, metricName, err)
+				return
+			}
+		case "counter":
+			intValue, ok := value.(int64)
+			if !ok {
+				http.Error(w, logger.ErrMetricInvalidType, http.StatusInternalServerError)
+				log.Printf("%s: expected int64 but got %T", logger.ErrMetricInvalidType, value)
+				return
+			}
+			valueStr := strconv.FormatInt(intValue, 10)
+			_, err = w.Write([]byte(valueStr))
+			if err != nil {
+				http.Error(w, logger.ErrWriteResponce, http.StatusInternalServerError)
+				log.Printf("%s for metric %s: %v", logger.ErrWriteResponce, metricName, err)
+				return
+			}
+		default:
+			http.Error(w, logger.ErrMetricInvalidType, http.StatusBadRequest)
 			return
 		}
 	}
