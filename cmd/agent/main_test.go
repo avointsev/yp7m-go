@@ -15,7 +15,7 @@ func TestMainFunction(t *testing.T) {
 	config := flags.AgentConfig{
 		ReportInterval: 2 * time.Second,
 		PollInterval:   1 * time.Second,
-		Address:        "localhost:8080",
+		Address:        "127.0.0.1:8080",
 	}
 
 	mockMetrics := metrics.NewMetrics()
