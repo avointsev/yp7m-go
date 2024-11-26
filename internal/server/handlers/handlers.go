@@ -34,7 +34,7 @@ func UpdateMetricHandler(store storage.StorageType) http.HandlerFunc {
 		case Gauge:
 			value, err := strconv.ParseFloat(metricValue, 64)
 			if err != nil {
-				http.Error(w, logger.ErrMetricInvalidGaugeValue, http.StatusBadRequest)
+				http.Error(w, logger.ErrMetricInvalidGaugeValue, http.StatusNotFound)
 				log.Printf(logger.LogDefaultFormat, logger.ErrMetricInvalidGaugeValue, metricValue)
 				return
 			}
@@ -44,12 +44,12 @@ func UpdateMetricHandler(store storage.StorageType) http.HandlerFunc {
 		case Counter:
 			value, err := strconv.ParseInt(metricValue, 10, 64)
 			if err != nil {
-				http.Error(w, logger.ErrMetricInvalidCounterValue, http.StatusBadRequest)
+				http.Error(w, logger.ErrMetricInvalidCounterValue, http.StatusNotFound)
 				log.Printf(logger.LogDefaultFormat, logger.ErrMetricInvalidCounterValue, metricValue)
 				return
 			}
 			if value < 0 {
-				http.Error(w, logger.ErrMetricInvalidCounterValue, http.StatusBadRequest)
+				http.Error(w, logger.ErrMetricInvalidCounterValue, http.StatusNotFound)
 				log.Printf("%s: counter value cannot be negative, %s == %d", logger.ErrMetricInvalidCounterValue, metricName, value)
 				return
 			}
@@ -57,7 +57,7 @@ func UpdateMetricHandler(store storage.StorageType) http.HandlerFunc {
 			responseMessage = "Metric " + metricName + " " + logger.OkUpdated
 
 		default:
-			http.Error(w, logger.ErrMetricInvalidType, http.StatusBadRequest)
+			http.Error(w, logger.ErrMetricInvalidType, http.StatusNotFound)
 			log.Printf(logger.LogDefaultFormat, logger.ErrMetricInvalidType, metricType)
 			return
 		}
@@ -82,7 +82,7 @@ func GetMetricHandler(store storage.StorageType) http.HandlerFunc {
 		if err != nil {
 			switch err.Error() {
 			case logger.ErrMetricInvalidType:
-				http.Error(w, logger.ErrMetricInvalidType, http.StatusBadRequest)
+				http.Error(w, logger.ErrMetricInvalidType, http.StatusNotFound)
 				return
 			case logger.ErrMetricNotFound:
 				http.Error(w, logger.ErrMetricNotFound, http.StatusNotFound)
@@ -125,7 +125,7 @@ func GetMetricHandler(store storage.StorageType) http.HandlerFunc {
 				return
 			}
 		default:
-			http.Error(w, logger.ErrMetricInvalidType, http.StatusBadRequest)
+			http.Error(w, logger.ErrMetricInvalidType, http.StatusNotFound)
 			return
 		}
 	}
