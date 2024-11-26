@@ -11,7 +11,7 @@ import (
 	"github.com/avointsev/yp7m-go/internal/flags"
 )
 
-func TestMainFunction(t *testing.T) {
+func TestMainFunction(_ *testing.T) {
 	config := flags.AgentConfig{
 		ReportInterval: 2 * time.Second,
 		PollInterval:   1 * time.Second,
