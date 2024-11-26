@@ -34,7 +34,7 @@ func UpdateMetricHandler(store storage.StorageType) http.HandlerFunc {
 		case Gauge:
 			value, err := strconv.ParseFloat(metricValue, 64)
 			if err != nil {
-				http.Error(w, logger.ErrMetricInvalidGaugeValue, http.StatusNotFound)
+				http.Error(w, logger.ErrMetricInvalidGaugeValue, http.StatusBadRequest)
 				log.Printf(logger.LogDefaultFormat, logger.ErrMetricInvalidGaugeValue, metricValue)
 				return
 			}
@@ -44,12 +44,12 @@ func UpdateMetricHandler(store storage.StorageType) http.HandlerFunc {
 		case Counter:
 			value, err := strconv.ParseInt(metricValue, 10, 64)
 			if err != nil {
-				http.Error(w, logger.ErrMetricInvalidCounterValue, http.StatusNotFound)
+				http.Error(w, logger.ErrMetricInvalidCounterValue, http.StatusBadRequest)
 				log.Printf(logger.LogDefaultFormat, logger.ErrMetricInvalidCounterValue, metricValue)
 				return
 			}
 			if value < 0 {
-				http.Error(w, logger.ErrMetricInvalidCounterValue, http.StatusNotFound)
+				http.Error(w, logger.ErrMetricInvalidCounterValue, http.StatusBadRequest)
 				log.Printf("%s: counter value cannot be negative, %s == %d", logger.ErrMetricInvalidCounterValue, metricName, value)
 				return
 			}
@@ -57,7 +57,7 @@ func UpdateMetricHandler(store storage.StorageType) http.HandlerFunc {
 			responseMessage = "Metric " + metricName + " " + logger.OkUpdated
 
 		default:
-			http.Error(w, logger.ErrMetricInvalidType, http.StatusNotFound)
+			http.Error(w, logger.ErrMetricInvalidType, http.StatusBadRequest)
 			log.Printf(logger.LogDefaultFormat, logger.ErrMetricInvalidType, metricType)
 			return
 		}
