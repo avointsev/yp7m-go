@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bytes"
-	"log"
-	"os"
+	_ "bytes"
+	_ "log"
+	_ "os"
 	"testing"
 	"time"
 

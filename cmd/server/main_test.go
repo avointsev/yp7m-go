@@ -3,9 +3,9 @@ package main
 import (
 	_ "bytes"
 	_ "log"
+	_ "os"
 	"net/http"
 	"net/http/httptest"
-	_ "os"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
