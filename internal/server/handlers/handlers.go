@@ -103,7 +103,7 @@ func GetMetricHandler(store storage.StorageType) http.HandlerFunc {
 				log.Printf("%s: expected float64 but got %T", logger.ErrMetricInvalidType, value)
 				return
 			}
-			valueStr := strconv.FormatFloat(floatValue, 'f', 3, 64)
+			valueStr := strconv.FormatFloat(floatValue, 'f', -1, 64)
 			_, err = w.Write([]byte(valueStr))
 			if err != nil {
 				http.Error(w, logger.ErrWriteResponce, http.StatusInternalServerError)
