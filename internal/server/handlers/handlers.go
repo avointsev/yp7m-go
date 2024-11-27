@@ -48,11 +48,6 @@ func UpdateMetricHandler(store storage.StorageType) http.HandlerFunc {
 				log.Printf(logger.LogDefaultFormat, logger.ErrMetricInvalidCounterValue, metricValue)
 				return
 			}
-			if value < 0 {
-				http.Error(w, logger.ErrMetricInvalidCounterValue, http.StatusBadRequest)
-				log.Printf("%s: counter value cannot be negative, %s == %d", logger.ErrMetricInvalidCounterValue, metricName, value)
-				return
-			}
 			store.UpdateCounter(metricName, value)
 			responseMessage = "Metric " + metricName + " " + logger.OkUpdated
 

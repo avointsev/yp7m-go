@@ -47,9 +47,12 @@ func (m *MemStorage) UpdateGauge(name string, value float64) {
 
 // UpdateCounter updates the value of a counter metric.
 func (m *MemStorage) UpdateCounter(name string, value int64) {
+	if value <= 0 {
+		return
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.counters[name] = value + 1
+	m.counters[name] += value
 }
 
 // GetAllMetrics returns a map of all available metrics.
