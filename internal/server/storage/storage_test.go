@@ -27,8 +27,38 @@ func TestUpdateCounter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if value != int64(6) {
-		t.Errorf("expected value 6, got %v", value)
+	if value != int64(5) {
+		t.Errorf("expected value 5, got %v", value)
+	}
+
+	memStorage.UpdateCounter("counter_metric", 3)
+	value, err = memStorage.GetMetric("counter", "counter_metric")
+
+	if err != nil {
+		t.Fatalf("unexpected error after second update: %v", err)
+	}
+	if value != int64(8) {
+		t.Errorf("expected value 8 after second update, got %v", value)
+	}
+
+	memStorage.UpdateCounter("counter_metric", -2)
+	value, err = memStorage.GetMetric("counter", "counter_metric")
+
+	if err != nil {
+		t.Fatalf("unexpected error after invalid update: %v", err)
+	}
+	if value != int64(8) {
+		t.Errorf("expected value 8 after invalid update, got %v", value)
+	}
+
+	memStorage.UpdateCounter("counter_metric", 0)
+	value, err = memStorage.GetMetric("counter", "counter_metric")
+
+	if err != nil {
+		t.Fatalf("unexpected error after zero update: %v", err)
+	}
+	if value != int64(8) {
+		t.Errorf("expected value 8 after zero update, got %v", value)
 	}
 }
 
