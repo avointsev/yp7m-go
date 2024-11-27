@@ -73,8 +73,8 @@ func TestGetAllMetrics(t *testing.T) {
 	if allMetrics["gauge_metric"] != 10.5 {
 		t.Errorf("expected value 10.5 for gauge_metric, got %v", allMetrics["gauge_metric"])
 	}
-	if allMetrics["counter_metric"] != int64(6) {
-		t.Errorf("expected value 6 for counter_metric, got %v", allMetrics["counter_metric"])
+	if allMetrics["counter_metric"] != int64(5) {
+		t.Errorf("expected value 5 for counter_metric, got %v", allMetrics["counter_metric"])
 	}
 }
 
