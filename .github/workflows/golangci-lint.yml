@@ -24,5 +24,4 @@ jobs:
         with:
           version: v2.1.6
           args: >
-            --output.text.path stdout 
-            --output.json.path=stdout
+            --output.json.path=./golangci-lint/report-unformatted.json
