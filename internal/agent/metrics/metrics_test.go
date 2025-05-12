@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -69,7 +68,7 @@ func TestSendMetric(t *testing.T) {
 
 	serverURL, _ := url.Parse(server.URL)
 	destAddress := serverURL.Host
-	metrics.SendMetric(destAddress, "gauge", "Alloc", strconv.FormatFloat(rand.Float64()*100, 'f', -1, 64))
+	metrics.SendMetric(destAddress, "gauge", "Alloc", strconv.FormatFloat(cryptoFloat64()*100, 'f', -1, 64))
 }
 
 // TestReportMetrics checks the sending of all metrics.
@@ -80,7 +79,7 @@ func TestReportMetrics(t *testing.T) {
 	// Counter to check that all metrics are sent
 	counter := 0
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		counter++
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -105,7 +104,7 @@ func TestMainLoop(t *testing.T) {
 	pollDone := make(chan bool)
 	reportDone := make(chan bool)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		reportDone <- true
 		w.WriteHeader(http.StatusOK)
 	}))

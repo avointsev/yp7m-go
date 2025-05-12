@@ -1,8 +1,8 @@
+version: "2"
 # Options for analysis running.
 run:
   go: "1.22"
   # Settable parameters #
-  timeout: 5m
   tests: true
   build-tags: []
   # Which files to skip: they will be analyzed, but issues from them won't be reported.
@@ -35,7 +35,8 @@ run:
 # Output configuration options
 output:
   formats:
-    - format: json
+    json:
+      path: ./golangci-lint/report-unformatted.json
   # Print lines of code with issue.
   print-issued-lines: true
   # Print linter name in the end of issue text.
@@ -218,11 +219,11 @@ linters-settings:
       - G402
       - G403
 
-  gosimple:
-    checks:
-      - "*"
-      - -SA1014
-      - -SA1028
+  # gosimple:
+  #   checks:
+  #     - "*"
+  #     - -SA1014
+  #     - -SA1028
 
   govet:
     disable:
@@ -380,57 +381,55 @@ linters-settings:
     checks:
       - "*"
 
-  stylecheck:
-    checks:
-      - "*"
-      - -ST1000
-    http-status-code-whitelist: []
-    initialisms:
-      - ACL
-      - API
-      - ASCII
-      - CPU
-      - CSS
-      - DNS
-      - EOF
-      - GUID
-      - HTML
-      - HTTP
-      - HTTPS
-      - ID
-      - IP
-      - JSON
-      - QPS
-      - RAM
-      - RPC
-      - SLA
-      - SMTP
-      - SQL
-      - SSH
-      - TCP
-      - TLS
-      - TTL
-      - UDP
-      - UI
-      - GID
-      - UID
-      - UUID
-      - URI
-      - URL
-      - UTF8
-      - VM
-      - XML
-      - XMPP
-      - XSRF
-      - XSS
-      - SIP
-      - RTP
-      - AMQP
-      - DB
-      - TS
+  # stylecheck:
+  #   checks:
+  #     - "*"
+  #     - -ST1000
+  #   http-status-code-whitelist: []
+  #   initialisms:
+  #     - ACL
+  #     - API
+  #     - ASCII
+  #     - CPU
+  #     - CSS
+  #     - DNS
+  #     - EOF
+  #     - GUID
+  #     - HTML
+  #     - HTTP
+  #     - HTTPS
+  #     - ID
+  #     - IP
+  #     - JSON
+  #     - QPS
+  #     - RAM
+  #     - RPC
+  #     - SLA
+  #     - SMTP
+  #     - SQL
+  #     - SSH
+  #     - TCP
+  #     - TLS
+  #     - TTL
+  #     - UDP
+  #     - UI
+  #     - GID
+  #     - UID
+  #     - UUID
+  #     - URI
+  #     - URL
+  #     - UTF8
+  #     - VM
+  #     - XML
+  #     - XMPP
+  #     - XSRF
+  #     - XSS
+  #     - SIP
+  #     - RTP
+  #     - AMQP
+  #     - DB
+  #     - TS
 
-  tenv:
-    all: false
 
   thelper:
     benchmark:
@@ -469,10 +468,18 @@ linters-settings:
     multi-func: false
     multi-if: false
 
+# Formatters configuration
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+
 # Linters configuration
 linters:
   # Disable all linters.
-  disable-all: true
+  default: none
   # Enable specific linters.
   enable:
     - asasalint
@@ -492,12 +499,9 @@ linters:
     - goconst
     - gocritic
     - godot
-    - gofmt
-    - goimports
     - mnd
     - goprintffuncname
     - gosec
-    - gosimple
     - govet
     - grouper
     - ineffassign
@@ -521,12 +525,9 @@ linters:
     - sloglint
     - sqlclosecheck
     - staticcheck
-    - stylecheck
-    - tenv
     - testableexamples
     - thelper
     - tparallel
-    - typecheck
     - unconvert
     - unparam
     - unused
@@ -570,7 +571,6 @@ issues:
   # Independently of option `exclude` we use default exclude patterns,
   # it can be disabled by this option.
   # To list all excluded by default patterns execute `golangci-lint run --help`.
-  exclude-use-default: false
 
   # Disabled parameters  #
 
