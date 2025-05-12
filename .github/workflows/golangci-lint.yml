@@ -23,4 +23,6 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           version: v2.1.6
-          args: --output.json.path=stdout
+          args: >
+            --output.text.path stdout 
+            --output.json.path=stdout
