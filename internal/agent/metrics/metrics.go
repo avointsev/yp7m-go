@@ -1,4 +1,4 @@
-//revive:disable:package-comments
+// Package metrics function releted with metrics
 package metrics
 
 import (
@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	// number of bits in a float64 mantissa (precision of math/rand.Float64).
+	// Number of bits in a float64 mantissa (precision of math/rand.Float64).
 	randMantissaBits = 53
-	// bits to shift right on a 64-bit value to get randMantissaBits of entropy.
+	// Bits to shift right on a 64-bit value to get randMantissaBits of entropy.
 	randShiftBits = 64 - randMantissaBits
 )
 

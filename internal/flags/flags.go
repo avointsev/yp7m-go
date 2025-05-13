@@ -1,4 +1,4 @@
-//revive:disable:package-comments
+// Package flags functions related with env and agruments
 package flags
 
 import (

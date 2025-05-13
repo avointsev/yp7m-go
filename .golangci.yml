@@ -131,7 +131,7 @@ linters:
       ignore-calls: false
       match-constant: true
       min-len: 3
-      min-occurrences: 4
+      min-occurrences: 10
       numbers: false
 
     gocritic:

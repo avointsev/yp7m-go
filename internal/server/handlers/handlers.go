@@ -1,4 +1,4 @@
-//revive:disable:package-comments
+// Package handlers functions related with web handlers
 package handlers
 
 import (

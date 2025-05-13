@@ -1,4 +1,4 @@
-//revive:disable:package-comments
+// Package main for server
 package main
 
 import (
