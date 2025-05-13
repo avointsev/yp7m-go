@@ -1,22 +1,23 @@
+// Package storage functions related storage.
 package storage
 
 import (
 	"errors"
 	"sync"
-
-	"github.com/avointsev/yp7m-go/internal/logger"
 )
 
 // MetricType defines metric types.
 type MetricType string
 
 const (
-	Gauge   = "gauge"
+	// Gauge is the storage key for gauge metrics.
+	Gauge = "gauge"
+	// Counter is the storage key for counter metrics.
 	Counter = "counter"
 )
 
-// StorageType interface for interacting with MemStorage.
-type StorageType interface {
+// Type interface for interacting with MemStorage.
+type Type interface {
 	UpdateGauge(name string, value float64)
 	UpdateCounter(name string, value int64)
 	GetAllMetrics() map[string]interface{}
@@ -70,6 +71,7 @@ func (m *MemStorage) GetAllMetrics() map[string]interface{} {
 	return allMetrics
 }
 
+// GetMetric return metric.
 func (m *MemStorage) GetMetric(metricType, name string) (interface{}, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -78,16 +80,16 @@ func (m *MemStorage) GetMetric(metricType, name string) (interface{}, error) {
 	case Gauge:
 		value, ok := m.gauges[name]
 		if !ok {
-			return nil, errors.New(logger.ErrMetricInvalidType)
+			return nil, errors.New("invalid metric type")
 		}
 		return value, nil
 	case Counter:
 		value, ok := m.counters[name]
 		if !ok {
-			return nil, errors.New(logger.ErrMetricInvalidType)
+			return nil, errors.New("invalid metric type")
 		}
 		return value, nil
 	default:
-		return nil, errors.New(logger.ErrMetricNotFound)
+		return nil, errors.New("etric not found")
 	}
 }

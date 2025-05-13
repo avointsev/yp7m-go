@@ -12,7 +12,7 @@ import (
 )
 
 // setupRouter creates and returns a new chi router for testing.
-func setupRouter(store storage.StorageType) *chi.Mux {
+func setupRouter(store storage.Type) *chi.Mux {
 	r := chi.NewRouter()
 	r.Get("/", RootHandler(store))
 	r.Get("/value/{type}/{name}", GetMetricHandler(store))

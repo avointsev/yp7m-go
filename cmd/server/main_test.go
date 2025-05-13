@@ -8,11 +8,10 @@ import (
 	_ "os"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-
 	"github.com/avointsev/yp7m-go/internal/server/handlers"
 	"github.com/avointsev/yp7m-go/internal/server/storage"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 func TestMainFunction(t *testing.T) {

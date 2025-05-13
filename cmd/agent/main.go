@@ -1,3 +1,4 @@
+// Package main for agent.
 package main
 
 import (
@@ -6,13 +7,12 @@ import (
 
 	"github.com/avointsev/yp7m-go/internal/agent/metrics"
 	"github.com/avointsev/yp7m-go/internal/flags"
-	"github.com/avointsev/yp7m-go/internal/logger"
 )
 
 func main() {
 	config, err := flags.ParseAgentConfig()
 	if err != nil {
-		log.Fatalf("%s: %v", logger.ErrFlagsParse, err)
+		log.Fatalf("%s: %v", "Failed to parse arguments", err)
 	}
 
 	metricaSet := metrics.NewMetrics()

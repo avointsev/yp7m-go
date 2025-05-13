@@ -9,7 +9,6 @@ func TestUpdateGauge(t *testing.T) {
 
 	memStorage.UpdateGauge("gauge_metric", 10.5)
 	value, err := memStorage.GetMetric("gauge", "gauge_metric")
-
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -23,7 +22,6 @@ func TestUpdateCounter(t *testing.T) {
 
 	memStorage.UpdateCounter("counter_metric", 5)
 	value, err := memStorage.GetMetric("counter", "counter_metric")
-
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -33,7 +31,6 @@ func TestUpdateCounter(t *testing.T) {
 
 	memStorage.UpdateCounter("counter_metric", 3)
 	value, err = memStorage.GetMetric("counter", "counter_metric")
-
 	if err != nil {
 		t.Fatalf("unexpected error after second update: %v", err)
 	}
@@ -43,7 +40,6 @@ func TestUpdateCounter(t *testing.T) {
 
 	memStorage.UpdateCounter("counter_metric", -2)
 	value, err = memStorage.GetMetric("counter", "counter_metric")
-
 	if err != nil {
 		t.Fatalf("unexpected error after invalid update: %v", err)
 	}
@@ -53,7 +49,6 @@ func TestUpdateCounter(t *testing.T) {
 
 	memStorage.UpdateCounter("counter_metric", 0)
 	value, err = memStorage.GetMetric("counter", "counter_metric")
-
 	if err != nil {
 		t.Fatalf("unexpected error after zero update: %v", err)
 	}
