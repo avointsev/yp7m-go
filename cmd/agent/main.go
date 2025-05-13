@@ -1,4 +1,4 @@
-// Package main for agent
+// Package main for agent.
 package main
 
 import (

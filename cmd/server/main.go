@@ -1,4 +1,4 @@
-// Package main for server
+// Package main for server.
 package main
 
 import (

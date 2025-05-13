@@ -1,4 +1,4 @@
-// Package metrics function releted with metrics
+// Package metrics function releted with metrics.
 package metrics
 
 import (

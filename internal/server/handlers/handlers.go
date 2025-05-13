@@ -1,4 +1,4 @@
-// Package handlers functions related with web handlers
+// Package handlers functions related with web handlers.
 package handlers
 
 import (

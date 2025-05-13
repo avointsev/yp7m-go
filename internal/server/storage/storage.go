@@ -1,4 +1,4 @@
-//revive:disable:package-comments
+// Package storage functions related storage.
 package storage
 
 import (

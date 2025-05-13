@@ -1,4 +1,4 @@
-// Package flags functions related with env and agruments
+// Package flags functions related with env and agruments.
 package flags
 
 import (

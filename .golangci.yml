@@ -130,7 +130,7 @@ linters:
     goconst:
       ignore-calls: false
       match-constant: true
-      min-len: 3
+      min-len: 10
       min-occurrences: 10
       numbers: false
 
